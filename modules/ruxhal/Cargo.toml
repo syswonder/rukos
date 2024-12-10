@@ -24,7 +24,7 @@ default = []
 musl = []
 signal = []
 virtio_console = ["driver_console", "driver_virtio", "driver_virtio/console", "driver_common", "virtio-drivers", "axalloc", "lazy_static", "alloc", "virtio_hal"]
-
+ivc = ["axalloc"]
 
 [dependencies]
 log = "0.4"

@@ -34,6 +34,11 @@ pub mod misc {
     pub use crate::platform::aarch64_common::psci::system_off as terminate;
 }
 
+#[cfg(feature = "ivc")]
+pub mod ivc {
+    pub use crate::platform::aarch64_common::ivc::*;
+}
+
 extern "C" {
     fn exception_vector_base();
     fn rust_main(cpu_id: usize, dtb: usize);

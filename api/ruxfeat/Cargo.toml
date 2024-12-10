@@ -93,6 +93,9 @@ log-level-trace = ["axlog/log-level-trace"]
 
 tty = ["ruxhal/tty", "ruxruntime/tty", "alloc", "irq"]
 
+# inter-VM communication on hvisor
+ivc = ["alloc", "ruxhal/ivc"]
+
 [dependencies]
 ruxruntime = { path = "../../modules/ruxruntime" }
 ruxhal = { path = "../../modules/ruxhal" }
