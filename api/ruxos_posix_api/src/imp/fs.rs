@@ -74,7 +74,7 @@ pub fn sys_open(filename: *const c_char, flags: c_int, mode: ctypes::mode_t) -> 
     syscall_body!(sys_open, {
         let options = flags_to_options(flags, mode);
         let file = ruxfs::fops::File::open(filename?, &options)?;
-        File::new(file).add_to_fd_table()
+        File::new(file).add_to_fd_table(flags as usize)
     })
 }
 
@@ -94,7 +94,7 @@ pub fn sys_openat(fd: usize, path: *const c_char, flags: c_int, mode: ctypes::mo
                     .write()
                     .open_dir_at(path?, &options)?
             };
-            Directory::new(dir).add_to_fd_table()
+            Directory::new(dir).add_to_fd_table(flags as usize)
         } else {
             let file = if fd == ctypes::AT_FDCWD {
                 ruxfs::fops::File::open(path?, &options)?
@@ -104,7 +104,7 @@ pub fn sys_openat(fd: usize, path: *const c_char, flags: c_int, mode: ctypes::mo
                     .write()
                     .open_file_at(path?, &options)?
             };
-            File::new(file).add_to_fd_table()
+            File::new(file).add_to_fd_table(flags as usize)
         }
     })
 }

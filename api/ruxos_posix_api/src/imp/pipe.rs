@@ -233,8 +233,8 @@ pub fn sys_pipe(fds: &mut [c_int]) -> c_int {
         }
 
         let (read_end, write_end) = Pipe::new();
-        let read_fd = add_file_like(Arc::new(read_end))?;
-        let write_fd = add_file_like(Arc::new(write_end)).inspect_err(|_| {
+        let read_fd = add_file_like(Arc::new(read_end), 0)?;
+        let write_fd = add_file_like(Arc::new(write_end), 0).inspect_err(|_| {
             close_file_like(read_fd).ok();
         })?;
 

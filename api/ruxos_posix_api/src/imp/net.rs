@@ -42,8 +42,8 @@ pub enum Socket {
 }
 
 impl Socket {
-    fn add_to_fd_table(self) -> LinuxResult<c_int> {
-        ruxtask::fs::add_file_like(Arc::new(self))
+    fn add_to_fd_table(self, flags: usize) -> LinuxResult<c_int> {
+        ruxtask::fs::add_file_like(Arc::new(self), flags)
     }
 
     fn from_fd(fd: c_int) -> LinuxResult<Arc<Self>> {
@@ -338,25 +338,26 @@ fn from_sockaddr(
 pub fn sys_socket(domain: c_int, socktype: c_int, protocol: c_int) -> c_int {
     debug!("sys_socket <= {} {} {}", domain, socktype, protocol);
     let (domain, socktype, protocol) = (domain as u32, socktype as u32, protocol as u32);
-    pub const _SOCK_STREAM_NONBLOCK: u32 = ctypes::SOCK_STREAM | ctypes::SOCK_NONBLOCK;
+    let fdflags = (socktype & ctypes::SOCK_CLOEXEC) as usize;
+    let nonblock = (socktype & ctypes::SOCK_NONBLOCK) != 0;
+    let socktype = socktype & !ctypes::SOCK_CLOEXEC & !ctypes::SOCK_NONBLOCK;
     syscall_body!(sys_socket, {
         match (domain, socktype, protocol) {
             (ctypes::AF_INET, ctypes::SOCK_STREAM, ctypes::IPPROTO_TCP)
             | (ctypes::AF_INET, ctypes::SOCK_STREAM, 0) => {
-                Socket::Tcp(Mutex::new(TcpSocket::new())).add_to_fd_table()
+                let tcp_socket = TcpSocket::new();
+                if nonblock {
+                    tcp_socket.set_nonblocking(true);
+                }
+                Socket::Tcp(Mutex::new(tcp_socket)).add_to_fd_table(fdflags)
             }
             (ctypes::AF_INET, ctypes::SOCK_DGRAM, ctypes::IPPROTO_UDP)
             | (ctypes::AF_INET, ctypes::SOCK_DGRAM, 0) => {
-                Socket::Udp(Mutex::new(UdpSocket::new())).add_to_fd_table()
-            }
-            (ctypes::AF_INET, _SOCK_STREAM_NONBLOCK, ctypes::IPPROTO_TCP) => {
-                let tcp_socket = TcpSocket::new();
-                tcp_socket.set_nonblocking(true);
-                Socket::Tcp(Mutex::new(tcp_socket)).add_to_fd_table()
+                Socket::Udp(Mutex::new(UdpSocket::new())).add_to_fd_table(fdflags)
             }
             (ctypes::AF_UNIX, ctypes::SOCK_STREAM, 0) => {
                 Socket::Unix(Mutex::new(UnixSocket::new(UnixSocketType::SockStream)))
-                    .add_to_fd_table()
+                    .add_to_fd_table(fdflags)
             }
             _ => Err(LinuxError::EINVAL),
         }
@@ -558,7 +559,7 @@ pub unsafe fn sys_accept(
         let socket = Socket::from_fd(socket_fd)?;
         let new_socket = socket.accept()?;
         let addr = new_socket.peer_addr()?;
-        let new_fd = Socket::add_to_fd_table(new_socket)?;
+        let new_fd = Socket::add_to_fd_table(new_socket, 0)?;
         match addr {
             UnifiedSocketAddress::Net(addr) => unsafe {
                 (*socket_addr, *socket_len) = into_sockaddr(addr);
